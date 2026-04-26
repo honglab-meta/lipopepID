@@ -1,0 +1,24 @@
+Package: lipopepID
+Title: Lipopeptide Identification from Mass Spectrometry Data
+Version: 0.1.0
+Authors@R: 
+    person("Li", "Yan", email = "liyan393@mail2.sysu.edu.cn", role = c("aut"))
+    person("Xu", "Yaning", email = "xuyn39@mail2.sysu.edu.cn", role = c("cre"))
+Description: A comprehensive R package for the automated identification and 
+    scoring of lipopeptides from mass spectrometry data, optimized for 
+    high-resolution instruments like the Orbitrap.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    MSnbase,
+    tidyverse,
+    purrr,
+    dplyr,
+    stringr,
+    stringi,
+    ggplot2,
+    readr,
+    broom,
+    magrittr
