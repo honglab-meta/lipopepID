@@ -8,7 +8,7 @@ You can install the development version of **lipopepID** from GitHub with:
 
 ```R
 # install.packages("devtools")
-devtools::install_github("honglab/lipopepID")
+devtools::install_github("honglab-meta/lipopepID")
 ```
 
 ## Quick start
