@@ -30,11 +30,11 @@ CONFIG <- list(
   
   # 6. Total Score Weights (Sum should be 1.0)
   weights = list(
-    coverage   = 0.25,
-    continuity = 0.25,
-    precision  = 0.25,
-    intensity  = 0.15,
-    end_match  = 0.05,
-    adduct     = 0.05
+    coverage   = 0.027965829,
+    continuity = 0.26618344,
+    precision  = 0.330350618,
+    intensity  = 0.33594107,
+    end_match  = 0.034508360,
+    adduct     = 0.005050679
   )
 )

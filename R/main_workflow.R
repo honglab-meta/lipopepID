@@ -211,11 +211,11 @@ doMain <- function(lib_data, CONFIG) {
           y_nums <- sort(as.numeric(str_extract(Ion_Annotation[grepl("^y", Ion_Annotation)], "\\d+")))
           count_cont <- function(nums) if(length(nums) < 2) 0 else sum(diff(nums) == 1)
           total_cont_pairs <- count_cont(b_nums) + count_cont(y_nums)
-          theoretical_max_pairs <- pmax(1, first(Total_Theoretical_by) - 2)
+          theoretical_max_pairs <- pmax(1, dplyr::first(Total_Theoretical_by) - 2)
           pmin(1.0, total_cont_pairs / theoretical_max_pairs)
         },
         Score_Intensity = {
-          all_intensities <- intensity(exp_specs_clean[[first(Experimental_Scan)]])
+          all_intensities <- intensity(exp_specs_clean[[dplyr::first(Experimental_Scan)]])
           base_peak_int <- max(all_intensities, na.rm = TRUE)
           significant_mask <- all_intensities > (base_peak_int * CONFIG$int_base_peak_ratio)
           significant_peaks_sum <- sum(all_intensities[significant_mask], na.rm = TRUE)
@@ -226,18 +226,18 @@ doMain <- function(lib_data, CONFIG) {
           pmin(1.0, tic_ratio * intensity_penalty)
         },
         Matched_Unique_Ions = n_distinct(Ion_Annotation),
-        Total_Theory_Ions = first(Total_Theoretical_by),
+        Total_Theory_Ions = dplyr::first(Total_Theoretical_by),
         Score_Coverage = if_else(Matched_Unique_Ions >= CONFIG$cov_min_unique_ions,
                                  Matched_Unique_Ions / Total_Theory_Ions,
                                  (Matched_Unique_Ions / Total_Theory_Ions) * CONFIG$cov_penalty_factor),
         Score_End_Match = {
-          current_type <- first(LP_Type)
+          current_type <- dplyr::first(LP_Type)
           target_y <- if(current_type %in% c("LF", "CF")) "y10" else "y7"
           has_b1 = any(Ion_Annotation == "b1", na.rm = TRUE); has_target_y = any(Ion_Annotation == target_y, na.rm = TRUE)
           case_when(has_b1 & has_target_y ~ 1.0, has_b1 | has_target_y ~ 0.3, TRUE ~ 0.0)
         },
         Score_Adduct = {
-          curr_adduct <- as.character(first(matched_adduct))
+          curr_adduct <- as.character(dplyr::first(matched_adduct))
           val <- CONFIG$adduct_scores[curr_adduct]
           if(is.na(val)) CONFIG$adduct_scores["Default"] else val
         }, .groups = 'drop'
@@ -245,14 +245,23 @@ doMain <- function(lib_data, CONFIG) {
 
     final_report_v2 <- final_identified_lps_output %>%
       left_join(scoring_details, by = c("Experimental_Scan", "Theoretical_Lipopeptide")) %>%
-      mutate(LipopepID_Score = (Score_Coverage * CONFIG$weights$coverage) + (Score_Continuity * CONFIG$weights$continuity) +
-               (Score_Precision * CONFIG$weights$precision) + (Score_Intensity * CONFIG$weights$intensity) +
-               (Score_End_Match * CONFIG$weights$end_match) + (Score_Adduct * CONFIG$weights$adduct)) %>%
-      mutate(LipopepID_Score = pmin(1.0, round(LipopepID_Score, 4))) %>%
-      left_join(fData(raw_exp) %>% rownames_to_column("Scan_ID") %>%
-                  mutate(Experimental_Scan = paste0("Scan_", acquisitionNum)) %>%
-                  select(Experimental_Scan, precursorIntensity), by = "Experimental_Scan") %>%
-      rename(MS1_Intensity = precursorIntensity)
+      mutate(LipopepID_Score =
+               (Score_Coverage   * CONFIG$weights$coverage) +
+               (Score_Continuity * CONFIG$weights$continuity) +
+               (Score_Precision  * CONFIG$weights$precision) +
+               (Score_Intensity  * CONFIG$weights$intensity) +
+               (Score_End_Match  * CONFIG$weights$end_match) +
+               (Score_Adduct     * CONFIG$weights$adduct)) %>%
+      mutate(LipopepID_Score = pmin(1.0, round(LipopepID_Score, 4)))
+    ms1_info <- fData(raw_exp) %>%
+      as.data.frame() %>%
+      rownames_to_column("Scan_ID") %>%
+      mutate(Experimental_Scan = paste0("Scan_", acquisitionNum))
+    target_col <- intersect(c("precursorIntensity", "basePeakIntensity", "totIonCurrent"), colnames(ms1_info))[1]
+    ms1_info_clean <- ms1_info %>%
+      select(Experimental_Scan, MS1_Intensity = any_of(target_col))
+    final_report_v2 <- final_report_v2 %>%
+      left_join(ms1_info_clean, by = "Experimental_Scan")
 
     fdr_calc <- final_report_v2 %>% arrange(desc(LipopepID_Score)) %>%
       mutate(cum_target = cumsum(db == "target"), cum_decoy = cumsum(db == "decoy"),
@@ -407,13 +416,13 @@ doScore <- function(rdata_path, CONFIG) {
         y_nums <- sort(as.numeric(str_extract(Ion_Annotation[grepl("^y", Ion_Annotation)], "\\d+")))
         count_cont <- function(nums) if(length(nums) < 2) 0 else sum(diff(nums) == 1)
         total_cont_pairs <- count_cont(b_nums) + count_cont(y_nums)
-        theoretical_max_pairs <- pmax(1, first(Total_Theoretical_by) - 2)
+        theoretical_max_pairs <- pmax(1, dplyr::first(Total_Theoretical_by) - 2)
         pmin(1.0, total_cont_pairs / theoretical_max_pairs)
       },
 
 
       Score_Intensity = {
-        stats <- intensity_calculation_support[intensity_calculation_support$Experimental_Scan == first(Experimental_Scan), ]
+        stats <- intensity_calculation_support[intensity_calculation_support$Experimental_Scan == dplyr::first(Experimental_Scan), ]
         base_peak_int <- stats$Base_Peak_Intensity
         significant_peaks_sum <- stats$TIC_Significant_Ref
 
@@ -427,14 +436,14 @@ doScore <- function(rdata_path, CONFIG) {
 
 
       Matched_Unique_Ions = n_distinct(Ion_Annotation),
-      Total_Theory_Ions = first(Total_Theoretical_by),
+      Total_Theory_Ions = dplyr::first(Total_Theoretical_by),
       Score_Coverage = if_else(Matched_Unique_Ions >= CONFIG$cov_min_unique_ions,
                                Matched_Unique_Ions / Total_Theory_Ions,
                                (Matched_Unique_Ions / Total_Theory_Ions) * CONFIG$cov_penalty_factor),
 
 
       Score_End_Match = {
-        current_type <- first(LP_Type)
+        current_type <- dplyr::first(LP_Type)
         target_y <- if(current_type %in% c("LF", "CF")) "y10" else "y7"
         has_b1 = any(Ion_Annotation == "b1", na.rm = TRUE)
         has_target_y = any(Ion_Annotation == target_y, na.rm = TRUE)
@@ -443,7 +452,7 @@ doScore <- function(rdata_path, CONFIG) {
 
 
       Score_Adduct = {
-        curr_adduct <- as.character(first(matched_adduct))
+        curr_adduct <- as.character(dplyr::first(matched_adduct))
         val <- CONFIG$adduct_scores[curr_adduct]
         if(is.na(val)) CONFIG$adduct_scores["Default"] else val
       }, .groups = 'drop'
@@ -459,11 +468,16 @@ doScore <- function(rdata_path, CONFIG) {
              (Score_Intensity  * CONFIG$weights$intensity) +
              (Score_End_Match  * CONFIG$weights$end_match) +
              (Score_Adduct     * CONFIG$weights$adduct)) %>%
-    mutate(LipopepID_Score = pmin(1.0, round(LipopepID_Score, 4))) %>%
-    left_join(fData(raw_exp) %>% rownames_to_column("Scan_ID") %>%
-                mutate(Experimental_Scan = paste0("Scan_", acquisitionNum)) %>%
-                select(Experimental_Scan, precursorIntensity), by = "Experimental_Scan") %>%
-    rename(MS1_Intensity = precursorIntensity)
+    mutate(LipopepID_Score = pmin(1.0, round(LipopepID_Score, 4)))
+  ms1_info <- fData(raw_exp) %>%
+    as.data.frame() %>%
+    rownames_to_column("Scan_ID") %>%
+    mutate(Experimental_Scan = paste0("Scan_", acquisitionNum))
+  target_col <- intersect(c("precursorIntensity", "basePeakIntensity", "totIonCurrent"), colnames(ms1_info))[1]
+  ms1_info_clean <- ms1_info %>%
+    select(Experimental_Scan, MS1_Intensity = any_of(target_col))
+  final_report_v2 <- final_report_v2 %>%
+    left_join(ms1_info_clean, by = "Experimental_Scan")
 
 
   fdr_calc <- final_report_v2 %>% arrange(desc(LipopepID_Score)) %>%
