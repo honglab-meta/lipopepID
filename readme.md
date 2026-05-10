@@ -7,33 +7,15 @@
 You can install the development version of **lipopepID** from GitHub with:
 
 ```R
+# install.packages("MSnbase")
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("MSnbase")
 # install.packages("devtools")
 devtools::install_github("honglab-meta/lipopepID")
 ```
 
-## Quick start
-library(lipopepID)
-
-### 1. Prepare Theoretical Library
-The lib_file is a CSV containing peptide sequences and mass info.
-This CSV can be obtained from the authors.
-lib <- prepLib("path/to/your_library.csv", CONFIG)
-
-### 2. Execute Batch Processing
-Automatically searches all mzML files in the directory.
-doMain(lib, CONFIG)
-
-### 3. Scoring & FDR Filtering
-Apply 1% False Discovery Rate (FDR) thresholds.
-Note: Ensure your RData workspace is in the current directory.
-doScore(CONFIG)
-
-### 4. Statistical Aggregation
-Generate final summary reports across all samples.
-doStat()
-
-
-## Adjust config parameters and rerun doScore and doStat in the RData file.
+## Quick start: Testing with test data
 
 ### 1. load R package
 library(lipopepID)
@@ -48,6 +30,34 @@ load CONFIG.R file to your R environment
 doScore(rdata_path,CONFIG)
 
 ### 5. rerun doStat
+doStat()
+
+
+
+## From raw data to statistical analysis
+
+library(lipopepID)
+
+### 1. Prepare Theoretical Library
+The lib_file is a CSV containing peptide sequences and mass info.
+This CSV can be obtained from the authors.
+
+lib <- prepLib("path/to/your_library.csv", CONFIG)
+
+### 2. Execute Batch Processing
+Automatically searches all mzML files in the directory.
+
+doMain(lib, CONFIG)
+
+### 3. Scoring & FDR Filtering
+Apply 1% False Discovery Rate (FDR) thresholds.
+Note: Ensure your RData workspace is in the current directory.
+
+doScore(CONFIG)
+
+### 4. Statistical Aggregation
+Generate final summary reports across all samples.
+
 doStat()
 
 
