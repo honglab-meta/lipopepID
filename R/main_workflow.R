@@ -67,13 +67,13 @@ prepLib <- function(lib_path = "./final_lib.csv", CONFIG) {
 #' spectrum cleaning, identifies common peaks against the theoretical library,
 #' filters by MS1/MS2 tolerance, and generates initial identification reports.
 #'
-#' @param lib_data List. The output from the \code{prepLib} function.
+#' @param lib List. The output from the \code{prepLib} function.
 #' @param CONFIG List. Global configuration containing mass tolerances and scoring weights.
 #' @export
-doMain <- function(lib_data, CONFIG) {
-  spec_library <- lib_data$spec_library
-  theory_ion_counts <- lib_data$theory_ion_counts
-  df_theory <- lib_data$df_theory
+doMain <- function(lib, CONFIG) {
+  spec_library <- lib$spec_library
+  theory_ion_counts <- lib$theory_ion_counts
+  df_theory <- lib$df_theory
 
   mzML_files <- list.files(pattern = "\\.mzML$", full.names = FALSE)
   n_files <- length(mzML_files)
