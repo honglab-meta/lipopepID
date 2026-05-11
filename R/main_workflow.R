@@ -28,7 +28,7 @@ prepLib <- function(lib_path = "./final_lib.csv", CONFIG) {
   })
 
   df_theory_expanded <- df_theory_expanded %>%
-    bind_rows(
+    dplyr::bind_rows(
       df_theory_expanded %>%
         dplyr::filter(grepl("LF|CF", compound_name)) %>%
         dplyr::mutate(
@@ -71,6 +71,7 @@ prepLib <- function(lib_path = "./final_lib.csv", CONFIG) {
 #' @param CONFIG List. Global configuration containing mass tolerances and scoring weights.
 #' @export
 doMain <- function(lib, CONFIG) {
+  require(stats)
   spec_library <- lib$spec_library
   theory_ion_counts <- lib$theory_ion_counts
   df_theory <- lib$df_theory
@@ -87,11 +88,11 @@ doMain <- function(lib, CONFIG) {
     cat(sprintf("\n[%d/%d] processing: %s\n", f_idx, n_files, file_name))
 
     raw_exp <- MSnbase::readMSData(file_name, msLevel = 2, mode = "onDisk")
-    exp_specs <- spectra(raw_exp)
+    exp_specs <- MSnbase::spectra(raw_exp)
     names(exp_specs) <- paste0("Scan_", MSnbase::fData(raw_exp)$acquisitionNum)
 
     exp_specs_clean <- lapply(exp_specs, function(s) {
-      s <- pickPeaks(s) %>% clean(all = TRUE)
+      s <- MSnbase::pickPeaks(s) %>% clean(all = TRUE)
       max_int <- max(MSnbase::intensity(s), na.rm = TRUE)
       if(max_int > 0) s <- removePeaks(s, t = max_int * 0.001)
       return(s)
@@ -105,7 +106,7 @@ doMain <- function(lib, CONFIG) {
     for (i in seq_along(exp_specs_clean)) {
       s_i <- exp_specs_clean[[i]]
       for (j in seq_along(spec_library)) {
-        common_peaks_matrix[i, j] <- compareSpectra(s_i, spec_library[[j]],
+        common_peaks_matrix[i, j] <- MSnbase::compareSpectra(s_i, spec_library[[j]],
                                                     fun = "common", relative = TRUE, tolerance = tol_val)
       }
       setTxtProgressBar(pb, i)
@@ -180,9 +181,17 @@ doMain <- function(lib, CONFIG) {
     }
     matched_ions_detail <- do.call(rbind, detailed_matches_list)
     lookup_table <- df_theory %>%
-      dplyr::mutate(ion_label = paste0(ion_type, ion_num), add_label = adduct_label) %>%
-      dplyr::select(Theoretical_Lipopeptide = compound_name, Matched_mz_theo = mz, ion_label, add_label) %>%
-      distinct(Theoretical_Lipopeptide, Matched_mz_theo, .keep_all = TRUE)
+      dplyr::mutate(
+        ion_label = paste0(as.character(ion_type), as.character(ion_num)),
+        add_label = as.character(adduct_label)
+      ) %>%
+      dplyr::select(
+        Theoretical_Lipopeptide = compound_name,
+        Matched_mz_theo = mz,
+        ion_label,
+        add_label
+      ) %>%
+      dplyr::distinct(Theoretical_Lipopeptide, Matched_mz_theo, .keep_all = TRUE)
 
     feature_lookup <- final_identified_lps_output %>%
       dplyr::select(Experimental_Scan, Theoretical_Lipopeptide, LP_Type, FA_Details, AA_Sequence, matched_adduct, db)
@@ -205,7 +214,7 @@ doMain <- function(lib, CONFIG) {
       dplyr::left_join(theory_ion_counts, by = c("Theoretical_Lipopeptide" = "compound_name")) %>%
       dplyr::group_by(Experimental_Scan, Theoretical_Lipopeptide) %>%
       dplyr::summarise(
-        Score_Precision = pmax(0, 1 - (median(abs(ppm_error), na.rm = TRUE) / CONFIG$ms2_tolerance_ppm)),
+        Score_Precision = pmax(0, 1 - (stats::median(abs(ppm_error), na.rm = TRUE) / CONFIG$ms2_tolerance_ppm)),
         Score_Continuity = {
           b_nums <- sort(as.numeric(stringr::str_extract(Ion_Annotation[grepl("^b", Ion_Annotation)], "\\d+")))
           y_nums <- sort(as.numeric(stringr::str_extract(Ion_Annotation[grepl("^y", Ion_Annotation)], "\\d+")))
@@ -225,7 +234,7 @@ doMain <- function(lib, CONFIG) {
           intensity_penalty <- dplyr::if_else(avg_rel_int > CONFIG$int_avg_rel_threshold, 1.0, (avg_rel_int / CONFIG$int_penalty_coef))
           pmin(1.0, tic_ratio * intensity_penalty)
         },
-        Matched_Unique_Ions = n_distinct(Ion_Annotation),
+        Matched_Unique_Ions = dplyr::n_distinct(Ion_Annotation),
         Total_Theory_Ions = dplyr::first(Total_Theoretical_by),
         Score_Coverage = dplyr::if_else(Matched_Unique_Ions >= CONFIG$cov_min_unique_ions,
                                  Matched_Unique_Ions / Total_Theory_Ions,
@@ -259,7 +268,7 @@ doMain <- function(lib, CONFIG) {
       dplyr::mutate(Experimental_Scan = paste0("Scan_", acquisitionNum))
     target_col <- intersect(c("precursorIntensity", "basePeakIntensity", "totIonCurrent"), colnames(ms1_info))[1]
     ms1_info_clean <- ms1_info %>%
-      dplyr::select(Experimental_Scan, MS1_Intensity = any_of(target_col))
+      dplyr::select(Experimental_Scan, MS1_Intensity = dplyr::any_of(target_col))
     final_report_v2 <- final_report_v2 %>%
       dplyr::left_join(ms1_info_clean, by = "Experimental_Scan")
 
@@ -267,7 +276,7 @@ doMain <- function(lib, CONFIG) {
       dplyr::mutate(cum_target = cumsum(db == "target"), cum_decoy = cumsum(db == "decoy"),
              current_FDR = (2 * cum_decoy) / pmax(1, (cum_target + cum_decoy)))
 
-    cutoff_1 <- fdr_calc %>% dplyr::filter(current_FDR <= 0.01) %>% slice_tail(n = 1) %>% pull(LipopepID_Score)
+    cutoff_1 <- fdr_calc %>% dplyr::filter(current_FDR <= 0.01) %>% dplyr::slice_tail(n = 1) %>% dplyr::pull(LipopepID_Score)
     cutoff_1 <- if(length(cutoff_1) == 0) max(fdr_calc$LipopepID_Score) else cutoff_1
 
     final_report_v2_export <- final_report_v2 %>% dplyr::filter(db == "target") %>%
@@ -321,7 +330,7 @@ doStat <- function() {
       dplyr::filter(!(LP_Type == "CF" & matched_adduct == "H2O_add")) %>%
       dplyr::filter(!(LP_Type == "LF" & matched_adduct == "H2O_loss")) %>%
       dplyr::mutate(FA_Details = dplyr::case_when(
-        LP_Type %in% c("LF", "CF") & str_detect(FA_Details, "_") ~ stringr::str_extract(FA_Details, "(?<=_)\\d+$"),
+        LP_Type %in% c("LF", "CF") & stringr::str_detect(FA_Details, "_") ~ stringr::str_extract(FA_Details, "(?<=_)\\d+$"),
         TRUE ~ as.character(FA_Details)
       ))
     write_csv(df_cleaned, file_path)
@@ -347,8 +356,8 @@ doStat <- function() {
 
   lp_stat_files <- list.files(pattern = "_Stat_LP_Type.csv$", full.names = FALSE)
   fa_stat_files <- list.files(pattern = "_Stat_FA_Details.csv$", full.names = FALSE)
-  all_samples_lp_summary <- purrr::map_df(lp_stat_files, function(f) { sample_name <- stringr::str_remove(f, "_Stat_LP_Type.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% relocate(Sample_Source) })
-  all_samples_fa_summary <- purrr::map_df(fa_stat_files, function(f) { sample_name <- stringr::str_remove(f, "_Stat_FA_Details.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% relocate(Sample_Source) })
+  all_samples_lp_summary <- purrr::map_df(lp_stat_files, function(f) { sample_name <- stringr::str_remove(f, "_Stat_LP_Type.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% dplyr::relocate(Sample_Source) })
+  all_samples_fa_summary <- purrr::map_df(fa_stat_files, function(f) { sample_name <- stringr::str_remove(f, "_Stat_FA_Details.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% dplyr::relocate(Sample_Source) })
   write.csv(all_samples_lp_summary, "All_Samples_LP_Type.csv", row.names = FALSE)
   write.csv(all_samples_fa_summary, "All_Samples_FA_Details.csv", row.names = FALSE)
 
@@ -369,8 +378,8 @@ doStat <- function() {
 
   lp_fdr_files <- list.files(path = output_dir, pattern = "_Stat_LP_Type_1%FDR.csv$", full.names = TRUE)
   fa_fdr_files <- list.files(path = output_dir, pattern = "_Stat_FA_Details_1%FDR.csv$", full.names = TRUE)
-  all_fdr_lp <- purrr::map_df(lp_fdr_files, function(f) { sample_name <- stringr::str_remove(basename(f), "_Stat_LP_Type_1%FDR.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% relocate(Sample_Source) })
-  all_fdr_fa <- purrr::map_df(fa_fdr_files, function(f) { sample_name <- stringr::str_remove(basename(f), "_Stat_FA_Details_1%FDR.csv$"); read_csv(f, col_types = cols(.default = "c")) %>% dplyr::mutate(Sample_Source = sample_name) %>% relocate(Sample_Source) })
+  all_fdr_lp <- purrr::map_df(lp_fdr_files, function(f) { sample_name <- stringr::str_remove(basename(f), "_Stat_LP_Type_1%FDR.csv$"); read.csv(f) %>% dplyr::mutate(Sample_Source = sample_name) %>% dplyr::relocate(Sample_Source) })
+  all_fdr_fa <- purrr::map_df(fa_fdr_files, function(f) { sample_name <- stringr::str_remove(basename(f), "_Stat_FA_Details_1%FDR.csv$"); read_csv(f, col_types = cols(.default = "c")) %>% dplyr::mutate(Sample_Source = sample_name) %>% dplyr::relocate(Sample_Source) })
   write.csv(all_fdr_fa, file.path(output_dir, "All_Samples_FA_Details_FDR.csv"), row.names = FALSE)
   write.csv(all_fdr_lp, file.path(output_dir, "All_Samples_LP_Type_FDR.csv"), row.names = FALSE)
 
@@ -379,7 +388,7 @@ doStat <- function() {
   fdr_items <- list.files(pattern = "FDR", full.names = TRUE)
   fdr_files <- fdr_items[!dir.exists(fdr_items)]
   if (length(fdr_files) > 0) {
-    file.copy(fdr_files, file.path(target_dir, basename(fdr_files)))
+    file.copy(fdr_files, file.path(target_dir, base::basename(fdr_files)))
     file.remove(fdr_files)
   }
   cat("--- Statistical summary complete. ---\n")
@@ -408,7 +417,7 @@ doScore <- function(rdata_path, CONFIG) {
     dplyr::group_by(Experimental_Scan, Theoretical_Lipopeptide) %>%
     dplyr::summarise(
 
-      Score_Precision = pmax(0, 1 - (median(abs(ppm_error), na.rm = TRUE) / CONFIG$ms2_tolerance_ppm)),
+      Score_Precision = pmax(0, 1 - (stats::median(abs(ppm_error), na.rm = TRUE) / CONFIG$ms2_tolerance_ppm)),
 
 
       Score_Continuity = {
@@ -475,7 +484,7 @@ doScore <- function(rdata_path, CONFIG) {
     dplyr::mutate(Experimental_Scan = paste0("Scan_", acquisitionNum))
   target_col <- intersect(c("precursorIntensity", "basePeakIntensity", "totIonCurrent"), colnames(ms1_info))[1]
   ms1_info_clean <- ms1_info %>%
-    dplyr::select(Experimental_Scan, MS1_Intensity = any_of(target_col))
+    dplyr::select(Experimental_Scan, MS1_Intensity = dplyr::any_of(target_col))
   final_report_v2 <- final_report_v2 %>%
     dplyr::left_join(ms1_info_clean, by = "Experimental_Scan")
 
@@ -484,7 +493,7 @@ doScore <- function(rdata_path, CONFIG) {
     dplyr::mutate(cum_target = cumsum(db == "target"), cum_decoy = cumsum(db == "decoy"),
            current_FDR = (2 * cum_decoy) / pmax(1, (cum_target + cum_decoy)))
 
-  cutoff_1 <- fdr_calc %>% dplyr::filter(current_FDR <= 0.01) %>% slice_tail(n = 1) %>% pull(LipopepID_Score)
+  cutoff_1 <- fdr_calc %>% dplyr::filter(current_FDR <= 0.01) %>% dplyr::slice_tail(n = 1) %>% dplyr::pull(LipopepID_Score)
   cutoff_1 <- if(length(cutoff_1) == 0) max(fdr_calc$LipopepID_Score) else cutoff_1
 
 
