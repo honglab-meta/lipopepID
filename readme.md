@@ -31,6 +31,7 @@ rdata_path <- "path/to/LP_Scoring_Workspace.RData"
 load CONFIG.R file to your R environment
 
 ### 4. rerun doScore
+rdata_path represents your workspace path
 ```R
 doScore(rdata_path,CONFIG)
 ```
@@ -64,7 +65,7 @@ doMain(lib, CONFIG)
 Apply 1% False Discovery Rate (FDR) thresholds.
 Note: Ensure your RData workspace is in the current directory.
 ```R
-doScore(CONFIG)
+doScore(rdata_path,CONFIG)
 ```
 
 ### 4. Statistical Aggregation
