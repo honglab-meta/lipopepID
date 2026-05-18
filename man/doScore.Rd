@@ -2,17 +2,19 @@
 % Please edit documentation in R/main_workflow.R
 \name{doScore}
 \alias{doScore}
-\title{Re-scoring and FDR Calculation}
+\title{Scoring and FDR Calculation with Memory-based Processed Data}
 \usage{
-doScore(rdata_path, CONFIG)
+doScore(process_list, lib, CONFIG, optimized_weights = NULL)
 }
 \arguments{
-\item{rdata_path}{Character. Path to the intermediate workspace file (e.g., "*_Scoring_Workspace.RData").}
+\item{process_list}{List. The output object returned by doProcess.}
 
-\item{CONFIG}{List. Global configuration list. Weights provided here will override those used in the original \code{doMain} run.}
+\item{lib}{List. The output from the prepLib function.}
+
+\item{CONFIG}{List. Global configuration.}
+
+\item{optimized_weights}{List or Vector. Optional optimized weights from doWeight.}
 }
 \description{
-Performs a multi-dimensional scoring analysis on previously identified features
-using saved intermediate data. It calculates the Final LipopepID Score and
-determines the 1\% False Discovery Rate (FDR) threshold using a Target-Decoy approach.
+Scoring and FDR Calculation with Memory-based Processed Data
 }

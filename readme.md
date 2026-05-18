@@ -7,12 +7,14 @@
 You can install the development version of **lipopepID** from GitHub with:
 
 ```R
-# install.packages("MSnbase")
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("MSnbase")
 # install.packages("devtools")
 devtools::install_github("honglab-meta/lipopepID")
+```
+
+You can also install the development version of **lipopepID** from a local directory with:
+
+```R
+devtools::install_local("./lipopepID-main.zip")
 ```
 
 ## Quick start: Testing with test data
@@ -28,18 +30,14 @@ rdata_path <- "path/to/LP_Scoring_Workspace.RData"
 ```
 
 ### 3. load parameters
-load CONFIG.R file to your R environment
+load CONFIG.R file to your R environment.
 
-### 4. rerun doScore
-rdata_path represents your workspace path
+### 4. doReScore
+rdata_path represents your workspace path.
 ```R
-doScore(rdata_path,CONFIG)
+doReScore("LP_Workspace.RData", CONFIG)
 ```
 
-### 5. rerun doStat
-```R
-doStat()
-```
 
 
 
@@ -48,30 +46,29 @@ doStat()
 library(lipopepID)
 ```
 
-### 1. Prepare Theoretical Library
+### 1. Prepare theoretical library
 The lib_file is a CSV containing peptide sequences and mass info.
 This CSV can be obtained from the authors.
 ```R
-lib <- prepLib("path/to/your_library.csv", CONFIG)
+lib <- prepLib("./final_lib.csv", CONFIG)
 ```
 
-### 2. Execute Batch Processing
-Automatically searches all mzML files in the directory.
+### 2. Feature extraction and identification
+Automatically process all mzML files in the target directory to extract features and match them against the library.
 ```R
-doMain(lib, CONFIG)
+processed_list <- doProcess(lib, CONFIG)
 ```
 
-### 3. Scoring & FDR Filtering
-Apply 1% False Discovery Rate (FDR) thresholds.
-Note: Ensure your RData workspace is in the current directory.
+### 3. Weight optimization
+Optimize the scoring parameters based on the identified features to improve confidence and sensitivity.
 ```R
-doScore(rdata_path,CONFIG)
+weight_opt_res <- doWeight(processed_list, lib, CONFIG)
 ```
 
-### 4. Statistical Aggregation
-Generate final summary reports across all samples.
+### 4. Final scoring & false discovery rate control
+Apply the optimized weights to calculate final scores and perform 1% False Discovery Rate (FDR) filtering for the final summary report.
 ```R
-doStat()
+doScore(processed_list, lib, CONFIG, optimized_weights = weight_opt_res$best_weights)
 ```
 
 
