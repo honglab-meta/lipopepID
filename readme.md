@@ -31,6 +31,9 @@ rdata_path <- "path/to/LP_Scoring_Workspace.RData"
 
 ### 3. load parameters
 load CONFIG.R file to your R environment.
+```R
+source("./CONFIG.R")
+```
 
 ### 4. doReScore
 rdata_path represents your workspace path.
